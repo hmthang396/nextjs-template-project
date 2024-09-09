@@ -1,0 +1,28 @@
+{
+	"header": "header-ja",
+	"common": {
+		"buttons": {
+			"save": "保存",
+			"back": "戻る",
+			"update": "アップデート",
+			"edit": "編集"
+		}
+	},
+	"pages": {
+		"admin": {
+			"common": {},
+			"pages": {
+				"login": {}
+			}
+		},
+		"login": {},
+		"register": {},
+		"home": {
+			"title": "ホームページ"
+		}
+	},
+	"messages": {
+		"errors": {},
+		"notifications": {}
+	}
+}

@@ -1,0 +1,28 @@
+{
+	"header": "header",
+	"common": {
+		"buttons": {
+			"save": "Save",
+			"back": "Back",
+			"update": "Update",
+			"edit": "Edit"
+		}
+	},
+	"pages": {
+		"admin": {
+			"common": {},
+			"pages": {
+				"login": {}
+			}
+		},
+		"login": {},
+		"register": {},
+		"home": {
+			"title": "Home Page"
+		}
+	},
+	"messages": {
+		"errors": {},
+		"notifications": {}
+	}
+}

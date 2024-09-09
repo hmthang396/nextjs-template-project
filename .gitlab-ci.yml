@@ -1,0 +1,53 @@
+stages:
+  - eslint
+  - format
+  - type_check
+  - build
+  - deploy
+
+eslint:
+  stage: eslint
+  environment:
+    name: eslint_check
+  script:
+    - echo "Running ESLint..."
+    - npm run lint:check
+    - echo "ESLint check completed successfully"
+
+format:
+  stage: format
+  environment:
+    name: code_format_check
+  script:
+    - echo "Running code formatting check..."
+    - npm run format:check
+    - echo "Code formatting check completed successfully"
+
+type_check:
+  stage: type_check
+  environment:
+    name: type_check
+  script:
+    - echo "Running TypeScript type checking..."
+    - npm run ts
+    - echo "TypeScript type checking completed successfully"
+
+build:
+  stage: build
+  environment:
+    name: build_check
+  script:
+    - echo "Running build process..."
+    - npm run build
+    - echo "Build completed successfully"
+  
+deploy:
+  stage: deploy
+  environment:
+    name: deploy
+  script:
+    - echo "Running deploy process..."
+    - bash deploy/deploy.sh
+    - echo "Deploy completed successfully"
+  only:
+    - develop
