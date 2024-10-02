@@ -1,6 +1,6 @@
 "use client";
 
-import { AuthRepository } from "@repositories/*";
+import { authRepository } from "@/repositories/auth/auth.repository";
 import { ChangeEvent, useState } from "react";
 
 const FormLogin = () => {
@@ -9,10 +9,7 @@ const FormLogin = () => {
 
   const login = async () => {
     try {
-      await AuthRepository.login({
-        password,
-        username,
-      });
+      await authRepository.login({ email: username, password });
     } catch (error) {}
   };
 

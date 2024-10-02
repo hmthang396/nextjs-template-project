@@ -16,17 +16,18 @@ export type ApiFailureResponse = {
 export type GetRequestProps = {
   url: string;
   typeCheck?: (data: unknown, params?: Partial<ParseParams>) => SafeParseReturnType<unknown, unknown>;
-  accessToken?: string;
   config?: AxiosRequestConfig;
 };
 
 export type PostRequestProps<T> = {
   url: string;
   typeCheck?: (data: unknown, params?: Partial<ParseParams>) => SafeParseReturnType<unknown, unknown>;
-  accessToken?: string;
   body: T;
+  config?: AxiosRequestConfig;
 };
 
 export type PutRequestProps<T> = PostRequestProps<T>;
 
 export type PatchRequestProps<T> = PostRequestProps<T>;
+
+export type DeleteRequestProps = GetRequestProps;

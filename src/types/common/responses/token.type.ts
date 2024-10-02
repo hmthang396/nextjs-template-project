@@ -1,11 +1,9 @@
 import { z } from "zod";
 
 export const TokenReponse = z.object({
-  tokenType: z.string(),
-  accessToken: z.string(),
-  accessTokenExpireAt: z.number(),
-  refreshToken: z.string(),
-  refreshTokenExpireAt: z.number(),
+  tokenType: z.string({ message: "Token type is required" }),
+  accessToken: z.string({ message: "Access token is required" }),
+  accessTokenExpires: z.string({ message: "Access token expires is required" }),
 });
 
 export type TokenReponse = z.infer<typeof TokenReponse>;

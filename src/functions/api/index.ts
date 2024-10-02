@@ -1,6 +1,7 @@
-import axios from "axios";
+import axios, { AxiosInstance, AxiosRequestConfig, isAxiosError } from "axios";
 import {
   ApiSuccessResponse,
+  DeleteRequestProps,
   GetRequestProps,
   PatchRequestProps,
   PostRequestProps,
@@ -8,129 +9,137 @@ import {
 } from "@/types/common";
 import { setupInterceptorsTo } from "./interceptors";
 import { isSafeParseError } from "../validation";
+import { ErrorMessages } from "../exception";
 
-const axiosInstance = setupInterceptorsTo(
-  axios.create({
-    headers: {
-      "Content-Type": "application/json",
-    },
-    baseURL: process.env.NEXT_PUBLIC_URL_API,
-  }),
-);
-
-export function getRequest<T>(props: GetRequestProps): Promise<ApiSuccessResponse<T>> {
-  const { accessToken, url, typeCheck, config } = props;
-  return new Promise((resolve, reject) => {
-    axiosInstance
-      .get<ApiSuccessResponse<T>>(`${process.env.NEXT_PUBLIC_URL_API}${url}`, {
-        ...(config || {}),
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      })
-      .then((response) => {
-        const result = response.data;
-        if (typeCheck) {
-          const isValid = typeCheck(result?.payload);
-          if (isSafeParseError(isValid)) throw new TypeError("The response does not match the expected format.");
-        }
-        resolve(result);
-      })
-      .catch((error) => {
-        reject(error);
-      });
-  });
+interface IHttpClient {
+  get<T>(props: GetRequestProps): Promise<ApiSuccessResponse<T>>;
+  post<T, U>(props: PostRequestProps<U>): Promise<ApiSuccessResponse<T>>;
+  put<T, U>(props: PutRequestProps<U>): Promise<ApiSuccessResponse<T>>;
+  patch<T, U>(props: PatchRequestProps<U>): Promise<ApiSuccessResponse<T>>;
+  delete<T>(props: GetRequestProps): Promise<ApiSuccessResponse<T>>;
 }
 
-export function postRequest<T, U>(props: PostRequestProps<U>): Promise<ApiSuccessResponse<T>> {
-  const { accessToken, typeCheck, url, body } = props;
-  return new Promise((resolve, reject) => {
-    axiosInstance
-      .post<ApiSuccessResponse<T>>(`${process.env.NEXT_PUBLIC_URL_API}${url}`, body, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      })
-      .then((response) => {
+type ApiRequestProps<U> =
+  | {
+      method: "get";
+      options: GetRequestProps;
+    }
+  | {
+      method: "post";
+      options: PostRequestProps<U>;
+    }
+  | {
+      method: "put";
+      options: PutRequestProps<U>;
+    }
+  | {
+      method: "patch";
+      options: PatchRequestProps<U>;
+    }
+  | {
+      method: "delete";
+      options: DeleteRequestProps;
+    };
+
+class HttpClient implements IHttpClient {
+  private static instance: HttpClient;
+  private axiosInstance: AxiosInstance;
+
+  private constructor(axiosInstance: AxiosInstance) {
+    this.axiosInstance = axiosInstance;
+  }
+
+  public static getInstance(): HttpClient {
+    if (!HttpClient.instance) {
+      const accessToken = typeof window === "undefined" ? null : localStorage?.getItem("accessToken");
+
+      HttpClient.instance = new HttpClient(
+        setupInterceptorsTo(
+          axios.create({
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken || ""}`,
+            },
+            baseURL: process.env.NEXT_PUBLIC_URL_API,
+            withCredentials: true,
+          }),
+        ),
+      );
+    }
+
+    return HttpClient.instance;
+  }
+
+  public get instance(): AxiosInstance {
+    return this.axiosInstance;
+  }
+
+  private extractErrorMessages(error: unknown) {
+    if (Array.isArray(error) && error.length > 0) {
+      /* eslint-disable  @typescript-eslint/no-explicit-any */
+      return error.flatMap((error: any) => (error?.errors?.field ? error?.errors : error));
+    }
+    return "Unknown error";
+  }
+
+  private handleError(error: unknown) {
+    if (isAxiosError(error)) {
+      const errorData = error.response?.data;
+      const errorMessage =
+        typeof errorData.error === "string"
+          ? ErrorMessages.get(errorData.error) || errorData.error
+          : this.extractErrorMessages(errorData.error);
+
+      return errorMessage || "Network error!";
+    }
+    return "Network error!";
+  }
+
+  private async request<T, U>(params: ApiRequestProps<U>): Promise<ApiSuccessResponse<T>> {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const { method, options } = params;
+
+        const requestConfig: AxiosRequestConfig = {
+          ...(options?.config || {}),
+        };
+
+        const response = await this.instance[method]<ApiSuccessResponse<T>>(
+          options.url,
+          method === "get" || method === "delete" ? requestConfig : options.body,
+          requestConfig,
+        );
+
         const result = response.data;
-        if (typeCheck) {
-          const isValid = typeCheck(result?.payload);
-          if (isSafeParseError(isValid)) throw new TypeError("The response does not match the expected format.");
+
+        if (options?.typeCheck) {
+          const isValid = options.typeCheck(result?.payload);
+          if (isSafeParseError(isValid)) {
+            throw new Error(isValid?.error?.issues.map((issue) => issue.message).join("\n"));
+          }
         }
         resolve(result);
-      })
-      .catch((error) => {
-        reject(error);
-      });
-  });
+      } catch (error) {
+        reject(this.handleError(error));
+      }
+    });
+  }
+
+  public get<T>(props: GetRequestProps): Promise<ApiSuccessResponse<T>> {
+    return this.request<T, unknown>({ method: "get", options: props });
+  }
+  public post<T, U>(props: PostRequestProps<U>): Promise<ApiSuccessResponse<T>> {
+    return this.request<T, U>({ method: "post", options: props });
+  }
+  public put<T, U>(props: PutRequestProps<U>): Promise<ApiSuccessResponse<T>> {
+    return this.request<T, U>({ method: "put", options: props });
+  }
+  public patch<T, U>(props: PatchRequestProps<U>): Promise<ApiSuccessResponse<T>> {
+    return this.request<T, U>({ method: "patch", options: props });
+  }
+  public delete<T>(props: DeleteRequestProps): Promise<ApiSuccessResponse<T>> {
+    return this.request<T, unknown>({ method: "delete", options: props });
+  }
 }
 
-export function putRequest<T, U>(props: PutRequestProps<U>): Promise<ApiSuccessResponse<T>> {
-  const { accessToken, typeCheck, url, body } = props;
-  return new Promise((resolve, reject) => {
-    axiosInstance
-      .put<ApiSuccessResponse<T>>(`${process.env.NEXT_PUBLIC_URL_API}${url}`, body, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      })
-      .then((response) => {
-        const result = response.data;
-        if (typeCheck) {
-          const isValid = typeCheck(result?.payload);
-          if (isSafeParseError(isValid)) throw new TypeError("The response does not match the expected format.");
-        }
-        resolve(result);
-      })
-      .catch((error) => {
-        reject(error);
-      });
-  });
-}
-
-export function patchRequest<T, U>(props: PatchRequestProps<U>): Promise<ApiSuccessResponse<T>> {
-  const { accessToken, typeCheck, url, body } = props;
-  return new Promise((resolve, reject) => {
-    axiosInstance
-      .patch<ApiSuccessResponse<T>>(`${process.env.NEXT_PUBLIC_URL_API}${url}`, body, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      })
-      .then((response) => {
-        const result = response.data;
-        if (typeCheck) {
-          const isValid = typeCheck(result?.payload);
-          if (isSafeParseError(isValid)) throw new TypeError("The response does not match the expected format.");
-        }
-        resolve(result);
-      })
-      .catch((error) => {
-        reject(error);
-      });
-  });
-}
-
-export function deleteRequest<T>(props: GetRequestProps): Promise<ApiSuccessResponse<T>> {
-  const { accessToken, url, typeCheck, config } = props;
-  return new Promise((resolve, reject) => {
-    axiosInstance
-      .delete<ApiSuccessResponse<T>>(`${process.env.NEXT_PUBLIC_URL_API}${url}`, {
-        ...(config || {}),
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      })
-      .then((response) => {
-        const result = response.data;
-        if (typeCheck) {
-          const isValid = typeCheck(result?.payload);
-          if (isSafeParseError(isValid)) throw new TypeError("The response does not match the expected format.");
-        }
-        resolve(result);
-      })
-      .catch((error) => {
-        reject(error);
-      });
-  });
-}
+export const httpClient = HttpClient.getInstance();

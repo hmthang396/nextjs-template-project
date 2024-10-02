@@ -1,7 +1,7 @@
 import { AxiosInstance, InternalAxiosRequestConfig } from "axios";
-import { postRequest } from "../api";
 import { TokenReponse } from "@/types/common";
 import { GetAccessToken } from "@/types/common/requests/token.type";
+import { httpClient } from "../api";
 
 export const handleUnauthorizedError = async (
   axiosInstance: AxiosInstance,
@@ -9,7 +9,7 @@ export const handleUnauthorizedError = async (
   config: InternalAxiosRequestConfig<any> | undefined,
 ) => {
   try {
-    const response = await postRequest<TokenReponse, GetAccessToken>({
+    const response = await httpClient.post<TokenReponse, GetAccessToken>({
       url: `/api/v1/auth/token/refresh`,
       body: { refreshToken: localStorage.getItem("refreshToken") || "" },
       typeCheck: TokenReponse.safeParse,

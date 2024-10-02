@@ -5,6 +5,13 @@ import { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse, InternalA
 type AdaptAxiosRequestConfig = AxiosRequestConfig & InternalAxiosRequestConfig<any>;
 
 export const onRequest = (config: AdaptAxiosRequestConfig): AdaptAxiosRequestConfig => {
+  const accessToken = typeof window === "undefined" ? null : localStorage?.getItem("accessToken");
+
+  if (accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken || ""}`;
+  }
+
+  // Block Screen
   const element = document.getElementById("block-screen");
   if (element && element?.style?.display) {
     element.style.display = "flex";
